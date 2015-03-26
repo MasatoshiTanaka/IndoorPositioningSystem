@@ -8,6 +8,7 @@ import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
+import android.os.AsyncTask;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -18,17 +19,25 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 
 public class MainActivity extends ActionBarActivity {
     IntentFilter intentFilter;
     WifiManager wifiManager;
     WiFiReceiver wifiReceiver;
+    final private String icsGlobalIpAddrss = "133.20.243.197";
+    final private String icsPrivateIpAddress = "192.168.11.9";
+    final private int PORT = 6666;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -56,11 +65,40 @@ public class MainActivity extends ActionBarActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             List<ScanResult> scanResultList = wifiManager.getScanResults();
+            Map<String,List<Integer>> wifidata = new TreeMap<>();
             for (ScanResult scanResult : scanResultList) {
-                System.out.println(scanResult.BSSID + " " + scanResult.level);
+                String bssid = scanResult.BSSID;
+                int rssi = scanResult.level;
+                if(!wifidata.containsKey(bssid)){
+                    List<Integer> rssiList = new ArrayList<>();
+                    rssiList.add(rssi);
+                    wifidata.put(bssid, rssiList);
+                }else{
+                    wifidata.get(bssid).add(rssi);
+                }
+                System.out.println(bssid + " " + rssi);
             }
+            postWiFiData(wifidata);
             unregisterReceiver(this);
         }
+    }
+
+    public void  postWiFiData(final Map<String, List<Integer>> wifiData){
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                Socket socket = null;
+                try {
+                    socket = new Socket(icsPrivateIpAddress, PORT);
+                    ObjectOutputStream objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
+                    objectOutputStream.writeObject(wifiData);
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+        }.execute();
     }
 }
 
