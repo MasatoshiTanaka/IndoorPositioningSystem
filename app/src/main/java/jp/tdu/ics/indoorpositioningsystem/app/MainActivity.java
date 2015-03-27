@@ -19,6 +19,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -76,7 +77,7 @@ public class MainActivity extends ActionBarActivity {
                 }else{
                     wifidata.get(bssid).add(rssi);
                 }
-                System.out.println(bssid + " " + rssi);
+                //System.out.println(bssid + " " + rssi);
             }
             postWiFiData(wifidata);
             unregisterReceiver(this);
@@ -84,19 +85,35 @@ public class MainActivity extends ActionBarActivity {
     }
 
     public void  postWiFiData(final Map<String, List<Integer>> wifiData){
-        new AsyncTask<Void, Void, Void>() {
+        new AsyncTask<Void, Void, String>() {
             @Override
-            protected Void doInBackground(Void... params) {
+            protected String doInBackground(Void... params) {
                 Socket socket = null;
+                String message = "";
                 try {
-                    socket = new Socket(icsPrivateIpAddress, PORT);
+                    socket = new Socket(icsGlobalIpAddrss, PORT);
                     ObjectOutputStream objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
                     objectOutputStream.writeObject(wifiData);
+
+
+                    InputStreamReader inputStreamReader = new InputStreamReader(socket.getInputStream());
+                    BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+                    String receivedMessage;
+                    while ((receivedMessage = bufferedReader.readLine()) != null) {
+                        message += receivedMessage;
+                    }
+                    System.out.println(message);
+
                     socket.close();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                return null;
+                return message;
+            }
+
+            @Override
+            protected void onPostExecute(String message){
+                Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
             }
         }.execute();
     }
